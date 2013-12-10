@@ -4,7 +4,6 @@ import urllib.parse
 import sys
 import re
 import csv
-from bs4 import ResultSet
 from bs4 import BeautifulSoup
 
 DOMAIN = sys.argv[1]
@@ -14,18 +13,19 @@ PURPLE = '\033[95m'
 ORANGE = '\033[91m'
 BOLD = '\033[1m'
 ENDC = '\033[0m'
+
 def url_sanitize(url):
 	parsed = urllib.parse.urlparse(url)
 	return urllib.parse.urlunparse(urllib.parse.quote(x) for x in parsed)
 
 def check_url(url):
-	url_exists = False
 	req = urllib.request.Request(url)
-	req.add_header('User-Agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.57 Safari/537.36')
+	req.add_header('User-Agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.57 Safari/537.36') #act natural...
 	html = urllib.request.urlopen(req).read()
 	soup = BeautifulSoup(html)
 	link = soup.find_all('a', attrs={'href': re.compile(DOMAIN)})
-	if len(link) > 0:
+	
+	if len(link) > 0: #link from domain was found
 		print(BOLD + url + ENDC, PURPLE +  'EXISTS' + ENDC)
 		sheet.writerow([url, 'EXISTS'])
 	else:
