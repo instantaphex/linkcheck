@@ -24,7 +24,7 @@ def check_url(url):
 	req.add_header('User-Agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.57 Safari/537.36')
 	html = urllib.request.urlopen(req).read()
 	soup = BeautifulSoup(html)
-	link = soup.find_all('a', attrs={'href': re.compile("paliretreat.com")})
+	link = soup.find_all('a', attrs={'href': re.compile(DOMAIN)})
 	if len(link) > 0:
 		print(BOLD + url + ENDC, PURPLE +  'EXISTS' + ENDC)
 		sheet.writerow([url, 'EXISTS'])
