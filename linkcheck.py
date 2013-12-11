@@ -3,15 +3,11 @@
 from threading import Thread
 from queue import Queue
 from backlink import backlink
-# import urllib.request
-# import urllib.parse
 import urllib.error
 import http.client
 import csv
-# import re
 import sys
 import argparse
-# from bs4 import BeautifulSoup as bs
 
 parser = argparse.ArgumentParser(description='Check list of URLs for existence of link in html')
 parser.add_argument('-d','--domain', help='The domain you would like to search for a link to', required=True)
