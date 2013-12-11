@@ -2,14 +2,16 @@
 
 from threading import Thread
 from queue import Queue
-import urllib.request
-import urllib.parse
+from backlink import backlink
+# import urllib.request
+# import urllib.parse
 import urllib.error
+import http.client
 import csv
-import re
+# import re
 import sys
 import argparse
-from bs4 import BeautifulSoup as bs
+# from bs4 import BeautifulSoup as bs
 
 parser = argparse.ArgumentParser(description='Check list of URLs for existence of link in html')
 parser.add_argument('-d','--domain', help='The domain you would like to search for a link to', required=True)
@@ -30,47 +32,25 @@ ORANGE = '\033[91m'
 BOLD = '\033[1m'
 ENDC = '\033[0m'
 
-class backlink:
-    def __init__(self, url, index):
-        self.url = url
-        self.sanitized_url = self.url_sanitize(url) 
-        self.status = 'UNKNOWN' 
-        self.index = index
-    
-    def url_sanitize(self, url):
-        parsed = urllib.parse.urlparse(self.url)
-        return urllib.parse.urlunparse(urllib.parse.quote(x) for x in parsed)
-
-    def check_url(self, url):
-        req = urllib.request.Request(self.url)
-        req.add_header('User-Agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.57 Safari/537.36')
-        html = urllib.request.urlopen(req).read()
-        soup = bs(html)
-        link = soup.find_all('a', attrs={'href': re.compile(DOMAIN)})
-        if len(link) > 0: #link from domain was found
-            return EXISTS
-        else:
-            return REMOVED
-
 #Workers
 def worker(input_queue, output_queue):
     while True:
-        url = input_queue.get()
-        if url is None:
+        link = input_queue.get()
+        if link is None:
             input_queue.task_done()
             input_queue.put(None)
             break
         try:
-            url.status = url.check_url(url.url)
+            link.status = link.check_url(link.url)
         except urllib.error.HTTPError as e:
-            url.status = str(e)
+            link.status = str(e)
         except urllib.error.URLError as e:
-            url.status = str(e)
+            link.status = str(e)
         except http.client.BadStatusLine as e:
-            url.status = str(e)
+            link.status = str(e)
         except UnicodeDecodeError:
-            url.check_url(url.sanitized_url)
-        output_queue.put(url)
+            link.check_url(link.sanitized_url)
+        output_queue.put(link)
         input_queue.task_done()
 
 #Queues
@@ -88,7 +68,7 @@ number_of_urls = 0
 with open(INFILE, 'r') as f:
     for line in f:
         if line.strip() != '':
-            temp_bl = backlink(line.strip(), number_of_urls)
+            temp_bl = backlink(line.strip(), number_of_urls, DOMAIN)
         input_queue.put(temp_bl)
         number_of_urls += 1
 input_queue.put(None)
@@ -97,13 +77,13 @@ input_queue.put(None)
 with open(OUTFILE, 'a') as f:
     c = csv.writer(f, delimiter=',', quotechar='"')
     for i in range(number_of_urls):
-        url = output_queue.get()
+        link = output_queue.get()
         if ARGS['verbose']:
-            if url.status == EXISTS:
-                print('{} {} {}'.format(url.url, PURPLE + url.status + ENDC, url.index))
+            if link.status == EXISTS:
+                print('{} {} {}'.format(link.url, PURPLE + link.status + ENDC, link.index))
             else:
-                print('{} {} {}'.format(url.url, ORANGE + url.status + ENDC, url.index))
-        c.writerow((url.url, url.status))
+                print('{} {} {}'.format(link.url, ORANGE + link.status + ENDC, link.index))
+        c.writerow((link.url, link.status))
         output_queue.task_done()
 
 input_queue.get()
