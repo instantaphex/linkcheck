@@ -30,20 +30,26 @@ ORANGE = '\033[91m'
 BOLD = '\033[1m'
 ENDC = '\033[0m'
 
-def url_sanitize(url):
-    parsed = urllib.parse.urlparse(url)
-    return urllib.parse.urlunparse(urllib.parse.quote(x) for x in parsed)
+class backlink:
+    def __init__(self, url):
+        self.url = url
+        self.sanitized_url = self.url_sanitize(url) 
+        self.status = 'UNKNOWN' 
+    
+    def url_sanitize(self, url):
+        parsed = urllib.parse.urlparse(self.url)
+        return urllib.parse.urlunparse(urllib.parse.quote(x) for x in parsed)
 
-def check_url(url):
-    req = urllib.request.Request(url)
-    req.add_header('User-Agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.57 Safari/537.36') #act natural...
-    html = urllib.request.urlopen(req).read()
-    soup = bs(html)
-    link = soup.find_all('a', attrs={'href': re.compile(DOMAIN)})
-    if len(link) > 0: #link from domain was found
-        return EXISTS
-    else:
-        return REMOVED
+    def check_url(self, url):
+        req = urllib.request.Request(self.url)
+        req.add_header('User-Agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.57 Safari/537.36')
+        html = urllib.request.urlopen(req).read()
+        soup = bs(html)
+        link = soup.find_all('a', attrs={'href': re.compile(DOMAIN)})
+        if len(link) > 0: #link from domain was found
+            return EXISTS
+        else:
+            return REMOVED
 
 #Workers
 def worker(input_queue, output_queue):
@@ -54,14 +60,14 @@ def worker(input_queue, output_queue):
             input_queue.put(None)
             break
         try:
-            status = check_url(url)
+            url.status = url.check_url(url.url)
         except urllib.error.HTTPError as e:
-            status = str(e)
+            url.status = str(e)
         except urllib.error.URLError as e:
-            status = str(e)
+            url.status = str(e)
         except UnicodeDecodeError:
-            check_url(url_sanitize(url))
-        output_queue.put((url, status))
+            url.check_url(url.sanitized_url)
+        output_queue.put(url)
         input_queue.task_done()
 
 #Queues
@@ -78,7 +84,8 @@ for i in range(NUMBER_OF_WORKERS):
 number_of_urls = 0
 with open(INFILE, 'r') as f:
     for line in f:
-        input_queue.put(line.strip())
+        temp_bl = backlink(line.strip())
+        input_queue.put(temp_bl)
         number_of_urls += 1
 input_queue.put(None)
 
@@ -86,13 +93,13 @@ input_queue.put(None)
 with open(OUTFILE, 'a') as f:
     c = csv.writer(f, delimiter=',', quotechar='"')
     for i in range(number_of_urls):
-        url, status = output_queue.get()
+        url = output_queue.get()
         if ARGS['verbose']:
-            if status == EXISTS:
-                print('{} {}'.format(url, PURPLE + status + ENDC))
+            if url.status == EXISTS:
+                print('{} {}'.format(url.url, PURPLE + url.status + ENDC))
             else:
-                print('{} {}'.format(url, ORANGE + status + ENDC))
-        c.writerow((url, status))
+                print('{} {}'.format(url.url, ORANGE + url.status + ENDC))
+        c.writerow((url.url, url.status))
         output_queue.task_done()
 
 input_queue.get()
