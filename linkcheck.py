@@ -84,7 +84,8 @@ for i in range(NUMBER_OF_WORKERS):
 number_of_urls = 0
 with open(INFILE, 'r') as f:
     for line in f:
-        temp_bl = backlink(line.strip())
+        if line.strip() != '':
+            temp_bl = backlink(line.strip())
         input_queue.put(temp_bl)
         number_of_urls += 1
 input_queue.put(None)
