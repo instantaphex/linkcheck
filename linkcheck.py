@@ -31,10 +31,11 @@ BOLD = '\033[1m'
 ENDC = '\033[0m'
 
 class backlink:
-    def __init__(self, url):
+    def __init__(self, url, index):
         self.url = url
         self.sanitized_url = self.url_sanitize(url) 
         self.status = 'UNKNOWN' 
+        self.index = index
     
     def url_sanitize(self, url):
         parsed = urllib.parse.urlparse(self.url)
@@ -65,6 +66,8 @@ def worker(input_queue, output_queue):
             url.status = str(e)
         except urllib.error.URLError as e:
             url.status = str(e)
+        except http.client.BadStatusLine as e:
+            url.status = str(e)
         except UnicodeDecodeError:
             url.check_url(url.sanitized_url)
         output_queue.put(url)
@@ -85,7 +88,7 @@ number_of_urls = 0
 with open(INFILE, 'r') as f:
     for line in f:
         if line.strip() != '':
-            temp_bl = backlink(line.strip())
+            temp_bl = backlink(line.strip(), number_of_urls)
         input_queue.put(temp_bl)
         number_of_urls += 1
 input_queue.put(None)
@@ -97,9 +100,9 @@ with open(OUTFILE, 'a') as f:
         url = output_queue.get()
         if ARGS['verbose']:
             if url.status == EXISTS:
-                print('{} {}'.format(url.url, PURPLE + url.status + ENDC))
+                print('{} {} {}'.format(url.url, PURPLE + url.status + ENDC, url.index))
             else:
-                print('{} {}'.format(url.url, ORANGE + url.status + ENDC))
+                print('{} {} {}'.format(url.url, ORANGE + url.status + ENDC, url.index))
         c.writerow((url.url, url.status))
         output_queue.task_done()
 
