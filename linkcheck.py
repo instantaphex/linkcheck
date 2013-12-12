@@ -8,6 +8,7 @@ import http.client
 import csv
 import sys
 import argparse
+from operator import itemgetter
 
 parser = argparse.ArgumentParser(description='Check list of URLs for existence of link in html')
 parser.add_argument('-d','--domain', help='The domain you would like to search for a link to', required=True)
@@ -30,24 +31,27 @@ ENDC = '\033[0m'
 
 #Workers
 def worker(input_queue, output_queue):
-    while True:
-        link = input_queue.get()
-        if link is None:
-            input_queue.task_done()
-            input_queue.put(None)
-            break
-        try:
-            link.status = link.check_url(link.url)
-        except urllib.error.HTTPError as e:
-            link.status = str(e)
-        except urllib.error.URLError as e:
-            link.status = str(e)
-        except http.client.BadStatusLine as e:
-            link.status = str(e)
-        except UnicodeDecodeError:
-            link.check_url(link.sanitized_url)
-        output_queue.put(link)
-        input_queue.task_done()
+	while True:
+		link = input_queue.get()
+		if link is None:
+			input_queue.task_done()
+			input_queue.put(None)
+			break
+		try:
+			link.status = link.check_url(link.url)
+		except urllib.error.HTTPError as e:
+			link.status = str(e)
+		except urllib.error.URLError as e:
+			link.status = str(e)
+		except http.client.BadStatusLine as e:
+			link.status = str(e)
+		except UnicodeDecodeError:
+			link.check_url(link.sanitized_url)
+		except ConnectionResetError:
+			input_queue.put(link)
+			break
+		output_queue.put(link)
+		input_queue.task_done()
 
 #Queues
 input_queue = Queue()
@@ -68,19 +72,23 @@ with open(INFILE, 'r') as f:
         input_queue.put(temp_bl)
         number_of_urls += 1
 input_queue.put(None)
-
+links = []
 #Write URL and Status to csv file
 with open(OUTFILE, 'a') as f:
-    c = csv.writer(f, delimiter=',', quotechar='"')
-    for i in range(number_of_urls):
-        link = output_queue.get()
-        if ARGS['verbose']:
-            if link.status == EXISTS:
-                print('{} {} {}'.format(link.url, PURPLE + link.status + ENDC, link.index))
-            else:
-                print('{} {} {}'.format(link.url, ORANGE + link.status + ENDC, link.index))
-        c.writerow((link.url, link.status))
-        output_queue.task_done()
+	c = csv.writer(f, delimiter=',', quotechar='"')
+	for i in range(number_of_urls):
+		link = output_queue.get()
+		if ARGS['verbose']:
+			if link.status == EXISTS:
+				print('{} {} {}'.format(link.url, PURPLE + link.status + ENDC, link.index))
+			else:
+				print('{} {} {}'.format(link.url, ORANGE + link.status + ENDC, link.index))
+        # c.writerow((link.url, link.status))
+		links.append(link)
+		output_queue.task_done()
+	links.sort(key=lambda x:x.index)
+	for i in links:
+		c.writerow((i.index, i.url, i.status))
 
 input_queue.get()
 input_queue.task_done()
