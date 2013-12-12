@@ -72,7 +72,10 @@ with open(INFILE, 'r') as f:
         input_queue.put(temp_bl)
         number_of_urls += 1
 input_queue.put(None)
+
+#this list will be written to csv after it's sorted
 links = []
+
 #Write URL and Status to csv file
 with open(OUTFILE, 'a') as f:
 	c = csv.writer(f, delimiter=',', quotechar='"')
@@ -80,10 +83,9 @@ with open(OUTFILE, 'a') as f:
 		link = output_queue.get()
 		if ARGS['verbose']:
 			if link.status == EXISTS:
-				print('{} {} {}'.format(link.url, PURPLE + link.status + ENDC, link.index))
+				print('{}: {}'.format(link.url, PURPLE + link.status + ENDC))
 			else:
-				print('{} {} {}'.format(link.url, ORANGE + link.status + ENDC, link.index))
-        # c.writerow((link.url, link.status))
+				print('{}: {}'.format(link.url, ORANGE + link.status + ENDC))
 		links.append(link)
 		output_queue.task_done()
 	links.sort(key=lambda x:x.index)
