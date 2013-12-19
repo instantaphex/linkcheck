@@ -11,12 +11,13 @@ import re
 from bs4 import BeautifulSoup as bs
 
 class worker(Thread):
-	def __init__(self, input_queue, output_queue):
+	def __init__(self, input_queue, output_queue, domain):
 		super(worker, self).__init__()
 		self.daemon = True
 		self.cancelled = False
 		self.input_queue = input_queue
 		self.output_queue = output_queue
+		self.domain = domain
 
 	def url_sanitize(self, url):
 		parsed = urllib.parse.urlparse(url)
@@ -27,7 +28,7 @@ class worker(Thread):
 		req.add_header('User-Agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.57 Safari/537.36')
 		html = urllib.request.urlopen(req).read()
 		soup = bs(html)
-		link = soup.find_all('a', attrs={'href': re.compile(url)})
+		link = soup.find_all('a', attrs={'href': re.compile(self.domain)})
 		if len(link) > 0: #link from domain was found
 			return 'EXISTS'
 		else:

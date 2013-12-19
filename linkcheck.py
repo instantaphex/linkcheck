@@ -34,7 +34,7 @@ output_queue = Queue()
 
 #Create threads
 for i in range(NUMBER_OF_WORKERS):
-	t = worker(input_queue, output_queue) 
+	t = worker(input_queue, output_queue, DOMAIN) 
 	t.start()
 
 #Populate input queue
