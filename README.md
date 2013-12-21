@@ -16,9 +16,13 @@ sample output:
 $> linkcheck.py -d example.com -i list_of_urls -o results.csv -w 100 -v -c
 
 http://www.foo.com/links: EXISTS
+
 http://www.bar.com/spam: REMOVED
+
 http://www.spammyseofirm.com/webspam: EXISTS
 
 ====disavow.txt====
+
 domain:foo.com
+
 domain:spammyseofirm.com
