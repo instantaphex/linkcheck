@@ -26,7 +26,10 @@ class worker(Thread):
 	def check_url(self, url):
 		req = urllib.request.Request(url)
 		req.add_header('User-Agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.57 Safari/537.36')
-		html = urllib.request.urlopen(req).read()
+		try:
+			html = urllib.request.urlopen(req).read()
+		except urllib.error.HTTPError as e:
+			html = e.read()
 		soup = bs(html)
 		link = soup.find_all('a', attrs={'href': re.compile(self.domain)})
 		if len(link) > 0: #link from domain was found
