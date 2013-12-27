@@ -4,7 +4,7 @@ linkcheck
 A simple command line tool to check for existence of a backlink to your domain from a list of URLs.  This is for use in cleaning up a spammy back link profile.  Has the option to automatically generate a google disavow.txt file.
 
 
-As you're working through emailing and documenting your link removal efforts, you can run this every couple days to check progress.  It will crawl each page in a regular text file populated with links, check if there is a link to your domain on the page, and generate a .csv file showing you witch links exist and which are removed.  It can also automatically generate a disavow file based on existing links.
+As you're working through emailing and documenting your link removal efforts, you can run this every couple days to check progress.  It will crawl each page in a regular text file populated with links, check if there is a link to your domain on the page, and generate a .csv file showing you which links exist and which are removed.  It can also automatically generate a disavow file based on existing links.
 
 
 example usage:
