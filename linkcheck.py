@@ -29,10 +29,6 @@ DOMAIN = ARGS['domain']
 NUMBER_OF_WORKERS = int(ARGS['workers']) 
 VERBOSE = ARGS['verbose']
 CREATE_DISAVOW = ARGS['createdisavow']
-PURPLE = '\033[95m'
-ORANGE = '\033[91m'
-BOLD = '\033[1m'
-ENDC = '\033[0m'
 
 class backlink:
 	def __init__(self, url, index, domain):
