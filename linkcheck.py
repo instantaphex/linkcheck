@@ -30,7 +30,7 @@ NUMBER_OF_WORKERS = int(ARGS['workers'])
 VERBOSE = ARGS['verbose']
 CREATE_DISAVOW = ARGS['createdisavow']
 
-class backlink:
+class backlink(object):
 	def __init__(self, url, index, domain):
 		self.url = url
 		self.status = 'UNKNOWN' 
