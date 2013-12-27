@@ -12,7 +12,7 @@ import http.client
 from time import sleep
 import tldextract as tld
 from threading import Thread
-from bs4 import BeautifulSoup as bs
+from bs4 import BeautifulSoup as bs, SoupStrainer as ss
 
 parser = argparse.ArgumentParser(description='Check list of URLs for existence of link in html')
 parser.add_argument('-d','--domain', help='The domain you would like to search for a link to', required=True)
@@ -31,66 +31,70 @@ VERBOSE = ARGS['verbose']
 CREATE_DISAVOW = ARGS['createdisavow']
 
 class backlink(object):
-	def __init__(self, url, index, domain):
-		self.url = url
-		self.status = 'UNKNOWN' 
-		self.index = index
-		self.domain = domain
+    def __init__(self, url, index, domain):
+        self.url = url
+        self.status = 'UNKNOWN' 
+        self.index = index
+        self.domain = domain
     
 class worker(Thread):
-	def __init__(self, input_queue, output_queue, domain):
-		super(worker, self).__init__()
-		self.daemon = True
-		self.cancelled = False
-		self.input_queue = input_queue
-		self.output_queue = output_queue
-		self.domain = domain
+    def __init__(self, input_queue, output_queue, domain):
+        super(worker, self).__init__()
+        self.daemon = True
+        self.cancelled = False
+        self.input_queue = input_queue
+        self.output_queue = output_queue
+        self.domain = domain
 
-	def url_sanitize(self, url):
-		parsed = urllib.parse.urlparse(url)
-		return urllib.parse.urlunparse(urllib.parse.quote(x) for x in parsed)
+    def url_sanitize(self, url):
+        parsed = urllib.parse.urlparse(url)
+        return urllib.parse.urlunparse(urllib.parse.quote(x) for x in parsed)
 
-	def check_url(self, url):
-		req = urllib.request.Request(url)
-		req.add_header('User-Agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.57 Safari/537.36')
-		try:
-			html = urllib.request.urlopen(req).read()
-		except urllib.error.HTTPError as e:
-			html = e.read()
-		soup = bs(html)
-		link = soup.find_all('a', attrs={'href': re.compile(self.domain)})
-		if len(link) > 0: #link from domain was found
-			return 'EXISTS'
-		else:
-			return 'REMOVED'
+    def check_url(self, url):
+        req = urllib.request.Request(url)
+        req.add_header('User-Agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.57 Safari/537.36')
+        try:
+            html = urllib.request.urlopen(req).read()
+        except urllib.error.HTTPError as e:
+            html = e.read()
+        soup = bs(html, parse_only=ss('a'))
+        link = soup.find_all('a', attrs={'href': re.compile(self.domain)})
+        if len(link) > 0: #link from domain was found
+            for i in link:
+                if i.has_attr('rel'):
+                    return 'NOFOLLOWED'
+                else:
+                    return 'EXISTS'
+        else:
+            return 'REMOVED'
 
-	#Workers
-	def run(self):
-		while not self.cancelled:
-			link = self.input_queue.get()
-			if link is None:
-				self.input_queue.task_done()
-				self.input_queue.put(None)
-				break
-			try:
-				link.status = self.check_url(link.url)
-			except urllib.error.HTTPError as e:
-				link.status = str(e)
-			except urllib.error.URLError as e:
-				link.status = str(e)
-			except http.client.BadStatusLine as e:
-				link.status = str(e)
-			except UnicodeDecodeError:
-				self.check_url(self.sanitize_url(link.url))
-			except ConnectionResetError:
-				input_queue.put(link)
-				break
-			self.output_queue.put(link)
-			self.input_queue.task_done()
-			sleep(0.01)
+    #Workers
+    def run(self):
+        while not self.cancelled:
+            link = self.input_queue.get()
+            if link is None:
+                self.input_queue.task_done()
+                self.input_queue.put(None)
+                break
+            try:
+                link.status = self.check_url(link.url)
+            except urllib.error.HTTPError as e:
+                link.status = str(e)
+            except urllib.error.URLError as e:
+                link.status = str(e)
+            except http.client.BadStatusLine as e:
+                link.status = str(e)
+            except UnicodeDecodeError:
+                self.check_url(self.sanitize_url(link.url))
+            except ConnectionResetError:
+                input_queue.put(link)
+                break
+            self.output_queue.put(link)
+            self.input_queue.task_done()
+            sleep(0.01)
 
-	def cancel(self):
-		self.cancelled = True
+    def cancel(self):
+        self.cancelled = True
 
 class linkcheck(object):
 
@@ -134,8 +138,9 @@ class linkcheck(object):
                     if link.status == 'EXISTS':
                         print('{}: {}'.format(link.url, self.purple + link.status + self.endc))
                         if self.create_dis:
-                            dom = tld.extract(link.url)
-                            self.disavow_links.append('domain:' + dom.domain + '.' + dom.suffix + '\n')
+                            if link.status != 'NOFOLLOWED':
+                                dom = tld.extract(link.url)
+                                self.disavow_links.append('domain:' + dom.domain + '.' + dom.suffix + '\n')
                     else:
                         print('{}: {}'.format(link.url, self.orange + link.status + self.endc))
                 self.links.append(link)
