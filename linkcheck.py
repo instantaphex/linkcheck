@@ -96,60 +96,80 @@ class worker(Thread):
 	def cancel(self):
 		self.cancelled = True
 
+class linkcheck(object):
 
+    def __init__(self, domain, in_file, out_file, num_workers, verbose, create_dis):
+        self.in_file = in_file 
+        self.out_file = out_file
+        self.num_workers = num_workers
+        self.input_queue = Queue()
+        self.output_queue = Queue()
+        self.domain = domain
+        self.links = []
+        self.disavow_links = []
+        self.number_of_urls = 0
+        self.purple = '\033[95m'
+        self.orange = '\033[91m'
+        self.bold = '\033[1m'
+        self.endc = '\033[0m'
+        self.verbose = verbose
+        self.create_dis = create_dis
 
-#Queues
-input_queue = Queue()
-output_queue = Queue()
+    def create_threads(self):
+        for i in range(self.num_workers):
+            t = worker(self.input_queue, self.output_queue, self.domain)
+            t.start()
 
-#Create threads
-for i in range(NUMBER_OF_WORKERS):
-	t = worker(input_queue, output_queue, DOMAIN) 
-	t.start()
+    def populate_input_queue(self):
+        with open(self.in_file, 'r') as f:
+            for line in f:
+                if line.strip() != '':
+                    temp_bl = backlink(line.strip(), self.number_of_urls, self.domain)
+                self.input_queue.put(temp_bl)
+                self.number_of_urls += 1
+        self.input_queue.put(None)
 
-#Populate input queue
-number_of_urls = 0
-with open(INFILE, 'r') as f:
-    for line in f:
-        if line.strip() != '':
-            temp_bl = backlink(line.strip(), number_of_urls, DOMAIN)
-        input_queue.put(temp_bl)
-        number_of_urls += 1
-input_queue.put(None)
+    def write_csv(self):
+        with open(self.out_file, 'a') as f:
+            c = csv.writer(f, delimiter=',', quotechar='"')
+            for i in range(self.number_of_urls):
+                link = self.output_queue.get()
+                if self.verbose:
+                    if link.status == 'EXISTS':
+                        print('{}: {}'.format(link.url, self.purple + link.status + self.endc))
+                        if self.create_dis:
+                            dom = tld.extract(link.url)
+                            self.disavow_links.append('domain:' + dom.domain + '.' + dom.suffix + '\n')
+                    else:
+                        print('{}: {}'.format(link.url, self.orange + link.status + self.endc))
+                self.links.append(link)
+                self.output_queue.task_done()
+            self.links.sort(key=lambda x:x.index)
+            for i in self.links:
+                c.writerow((i.index, i.url, i.status))
 
-#this list will be written to csv after it's sorted
-links = []
-disavow_links = []
-#Write URL and Status to csv file
-with open(OUTFILE, 'a') as f:
-	c = csv.writer(f, delimiter=',', quotechar='"')
-	for i in range(number_of_urls):
-		link = output_queue.get()
-		if VERBOSE:
-			if link.status == 'EXISTS':
-				print('{}: {}'.format(link.url, PURPLE + link.status + ENDC))
-				#populate list for disavow file
-				if CREATE_DISAVOW:
-					dom = tld.extract(link.url)
-					disavow_links.append('domain:' + dom.domain + '.' + dom.suffix + '\n')
-			else:
-				print('{}: {}'.format(link.url, ORANGE + link.status + ENDC))
-		links.append(link)
-		output_queue.task_done()
-	links.sort(key=lambda x:x.index)
-	for i in links:
-		c.writerow((i.index, i.url, i.status))
+    def create_disavow(self):
+        #remove duplicate domains
+        self.disavow_links = set(self.disavow_links)
+        #write disavow file
+        if self.create_dis:
+            with open('disavow.txt', 'w') as f:
+                for i in self.disavow_links:
+                    f.write(i)
 
-if CREATE_DISAVOW:
-	#remove duplicates from disavow_links list
-	disavow_links = set(disavow_links)
-
-	#write disavow.txt file
-	with open('disavow.txt', 'w') as f:
-		for i in disavow_links:
-			f.write(i)
-
-input_queue.get()
-input_queue.task_done()
-input_queue.join()
-output_queue.join()
+    def queue_join(self):
+        self.input_queue.get()
+        self.input_queue.task_done()
+        self.input_queue.join()
+        self.output_queue.join()
+    
+    def run(self):
+        lc.create_threads()
+        lc.populate_input_queue()
+        lc.write_csv()
+        lc.create_disavow()
+        lc.queue_join()
+        
+if __name__ == '__main__':
+    lc = linkcheck(DOMAIN, INFILE, OUTFILE, NUMBER_OF_WORKERS, VERBOSE, CREATE_DISAVOW)
+    lc.run()
